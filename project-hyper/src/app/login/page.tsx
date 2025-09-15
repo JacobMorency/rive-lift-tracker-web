@@ -12,6 +12,7 @@ const LoginPage = () => {
     session: Session | null
   ): void => {
     if (user && session) {
+      // Redirect to a guarded route; AuthGuard will handle profile gating
       router.push("/workouts");
     }
     // TODO: Handle case where login fails or user is null

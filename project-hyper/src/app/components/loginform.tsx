@@ -3,7 +3,6 @@
 import supabase from "@/app/lib/supabaseClient";
 import { FormEvent, useState } from "react";
 import { User, Session } from "@supabase/supabase-js";
-import Link from "next/link";
 import { toast } from "sonner";
 
 type LoginFormProps = {
@@ -11,15 +10,19 @@ type LoginFormProps = {
   handleForgotPassword: () => void;
 };
 
-const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
+const LoginForm: React.FC<LoginFormProps> = ({
+  onLoginSuccess,
+  handleForgotPassword,
+}) => {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
+  const [isRegisterMode, setIsRegisterMode] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [emailEmpty, setEmailEmpty] = useState<boolean>(false);
   const [passwordEmpty, setPasswordEmpty] = useState<boolean>(false);
   const [isPasswordActive, setIsPasswordActive] = useState<boolean>(false);
 
-  const handleLogin = async (e: FormEvent): Promise<void> => {
+  const handleSubmit = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
 
     setEmailEmpty(false);
@@ -44,27 +47,45 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
     }
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: password,
-      });
+      if (isRegisterMode) {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/login`,
+          },
+        });
+        if (error) throw error;
+        toast.success("Check your email to confirm your account.");
+        setIsRegisterMode(false);
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: email,
+          password: password,
+        });
 
-      if (error) {
-        throw error;
+        if (error) {
+          throw error;
+        }
+        onLoginSuccess(data.user, data.session);
       }
-      onLoginSuccess(data.user, data.session);
     } catch (error) {
-      toast.error("Login failed. Invalid email or password.");
+      const message = isRegisterMode
+        ? "Sign up failed. Please try again."
+        : "Login failed. Invalid email or password.";
+      toast.error(message);
       if (process.env.NODE_ENV === "development") {
-        console.error("Login error:", error);
+        console.error("Auth error:", error);
       }
     }
   };
 
   return (
     <div className="flex justify-center items-center min-h-screen p-4">
-      <form onSubmit={handleLogin} className="w-full max-w-md p-6 space-y-3">
-        <h2 className="text-2xl font-bold text-center">Sign in</h2>
+      <form onSubmit={handleSubmit} className="w-full max-w-md p-6 space-y-3">
+        <h2 className="text-2xl font-bold text-center">
+          {isRegisterMode ? "Create account" : "Sign in"}
+        </h2>
         <div className="flex justify-center">
           <div className="bg-primary shrink-0 rounded-full h-20 w-20 flex items-center justify-center text-5xl">
             {isPasswordActive ? <p>🙈</p> : <p>💪</p>}
@@ -109,17 +130,30 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
             <p className="text-error italic text-sm">Password is required</p>
           )}
         </div>
-        <div className="text-right">
-          <Link href="/underconstruction" className="text-primary text-sm">
-            Forgot Password?
-          </Link>
-        </div>
+        {!isRegisterMode && (
+          <div className="text-right">
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              className="text-primary text-sm"
+            >
+              Forgot Password?
+            </button>
+          </div>
+        )}
         <div>
           <button className="btn btn-primary w-full" type="submit">
-            Login
+            {isRegisterMode ? "Create account" : "Login"}
           </button>
         </div>
         <div className="divider">OR</div>
+        <button
+          className="btn btn-outline w-full mb-2"
+          type="button"
+          onClick={() => setIsRegisterMode((v) => !v)}
+        >
+          {isRegisterMode ? "Have an account? Sign in" : "Create an account"}
+        </button>
         <button className="btn btn-outline w-full mb-2" type="button">
           <svg className="w-5 h-5 mr-2" viewBox="0 0 48 48">
             <path
